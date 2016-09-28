@@ -1,0 +1,60 @@
+---
+- hosts: all
+  become: yes
+  remote_user: ctuser
+  vars:
+    doc_root: /var/www
+    app_dir: /ansibledir/applications/
+    serverconfig: /ansibledir/
+    domain_name: example.org 
+  tasks: 
+  - name: apt-key for nginx
+    script: /etc/ansible/addnginxkey.sh
+  - name: setup deb nginx source
+    apt_repository: repo='deb http://nginx.org/packages/mainline/ubuntu/ trusty nginx' state=present
+  - name: setup deb-src nginx
+    apt_repository: repo='deb-src http://nginx.org/packages/mainline/ubuntu/ trusty nginx' state=present
+  - name: update the cache
+    apt: update_cache=yes
+  - name: install mysql nginx and php-fpm 
+    apt: name={{ item }} state=latest
+    with_items:
+    - nginx
+    - mysql-server
+    - php5-fpm
+    - php5-mysql
+  - name: make sure nginx is running
+    service: name=nginx state=started
+  - name: make sure mysql server is started
+    service: name=mysql state=started
+  - name: secure php.ini for cgi.fix_pathinfo
+    lineinfile: dest=/etc/php5/fpm/php.ini line="cgi.fix_pathinfo=0"
+  - name: make sure php-fpm is started
+    service: name=php5-fpm state=started
+  - name: create www directory
+    file: path={{ doc_root }} state=directory owner=root group=root mode=0755
+  - name: copy app source
+    synchronize: src={{ app_dir }} dest={{ doc_root }}
+  - name: change ownership permissions 
+    file: path={{ doc_root }} owner=www-data recurse=yes group=www-data mode=0644
+#  - name: copy easyform virtualhost template
+#    copy: src=/etc/ansible/easyform.conf dest=/etc/nginx/conf.d/ owner=root group=root mode=0644
+#  - name: copy sitebuilder virtualhost template
+#    copy: src=/etc/ansible/sitebuilder.conf dest=/etc/nginx/conf.d/ owner=root group=root mode=0644
+  - name: setup easyform site
+    template: src={{ serverconfig }}/easyform.conf.j2 dest=/etc/nginx/conf.d/easyform.conf mode=0644 
+    notify: restart nginx server
+  - name: setup sitebuilder site
+    template: src={{ serverconfig }}/sitebuilder.conf.j2 dest=/etc/nginx/conf.d/sitebuilder.conf mode=0644
+    notify: restart nginx server
+  - name: change mysql password
+    script: {{ serverconfig }}/mysqlscript.sh
+    notify: restart mysql server
+
+  handlers:
+    - name: restart nginx server
+      service: name=nginx state=restarted
+    - name: restart mysql server
+      service: name=mysql state=restarted
+
+#End

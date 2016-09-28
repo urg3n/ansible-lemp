@@ -1,0 +1,48 @@
+server {
+	listen 80;
+	root {{ doc_root }}/SITEBUILDERLite/SITEBUILDER;
+	index index.php index.html index.htm;
+        add_header X-Frame-Options SAMEORIGIN;
+        add_header X-Content-Type-Options nosniff;
+        add_header X-XSS-Protection "1; mode=block";
+        server_name sitebuilder.{{ domain_name }}; 
+        access_log /var/log/nginx/{{ domain_name }}.log;
+        error_log /var/log/nginx/{{ domain_name }}-error.log error;
+	location / {
+		try_files $uri $uri/ /index.php?$args ;
+	}
+location ~* \.(js|css|png|jpg|jpeg|gif|ico)$ {
+                expires max;
+                log_not_found off;
+        }
+location ~ /(build.xml|composer.json|composer.phar|generator.php|lib|phing|README.md) { 
+     access_log off; 
+     log_not_found off; 
+     deny all; 
+   }
+
+location ~* (init|composer.json|composer.lock)$ {
+     access_log off; log_not_found off; deny all; 
+    }
+location ~* \.(bak|bat|config|sql|fla|md|psd|ini|log|sh|inc|swp|dist)$ {
+access_log off;
+log_not_found off;
+deny all;
+}
+
+location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+location ~ \.php$ {
+	        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+                try_files $uri =404;
+                fastcgi_split_path_info ^(.+\.php)(/.+)$;
+		fastcgi_pass unix:/var/run/php5-fpm.sock;
+		fastcgi_index index.php;
+		include fastcgi_params;
+                fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+	}
+}
