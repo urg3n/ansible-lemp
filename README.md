@@ -5,4 +5,7 @@
 
 Note: mysqlscript
 
-    ansible by default sets upthe mysql server without root password. this script will create necessary database and imports the sql file from its respective app directory mentioned in script and will change/store the password into  /root/.mysqlrootpasswd
+    ansible by default sets upthe mysql server without root password. this script will create necessary database and imports the sql file from its respective app directory mentioned in script and will change/store the password into 
+    /root/.mysqlrootpasswd
+    
+...work on progress
