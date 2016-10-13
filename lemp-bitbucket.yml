@@ -1,0 +1,82 @@
+---
+  - hosts: all
+    become: yes
+    remote_user: forge
+    vars:
+      doc_root: /var/www
+      app_dir: /ansibledir/applications/
+      serverconfig: /ansibledir/
+      domain_name: glass.com 
+    tasks:
+    - name: add passwordless sudo
+      lineinfile: dest=/etc/sudoers regexp="ubuntu ALL=(ALL:ALL) NOPASSWD:ALL" line="ubuntu ALL=(ALL:ALL) NOPASSWD:ALL" state="present"
+    - name: apt-key for nginx
+      script: {{serverconfig}}nginxkeyadd.sh
+    - name: setup deb nginx source
+      apt_repository: repo='deb http://nginx.org/packages/mainline/ubuntu/ trusty nginx' state=present
+    - name: setup deb-src nginx
+      apt_repository: repo='deb-src http://nginx.org/packages/mainline/ubuntu/ trusty nginx' state=present
+  #  - name: update the cache
+  #    apt: update_cache=yes
+    - name: install mysql nginx and php-fpm 
+      apt: name={{ item }} state=latest
+      with_items:
+      - rsync
+      - git
+      - nginx
+      - mysql-server
+      - php5-curl
+      - php5-fpm
+      - php5-mysql
+    - name: make sure nginx is running
+      service: name=nginx state=started
+    - name: make sure mysql server is started
+      service: name=mysql state=started
+    - name: secure php.ini for cgi.fix_pathinfo
+      lineinfile: dest=/etc/php5/fpm/php.ini line="cgi.fix_pathinfo=0"
+    - name: change listen owner phpfpm
+      lineinfile: dest=/etc/php5/fpm/pool.d/www.conf regexp="^listen.owner" line="listen.owner = nginx" state="present"
+    - name: change listen owner group phpfpm  
+      lineinfile: dest=/etc/php5/fpm/pool.d/www.conf regexp="^listen.group" line="listen.group = nginx" state="present"
+    - name: change ownership phpfpm user
+      lineinfile: dest=/etc/php5/fpm/pool.d/www.conf regexp="^user"  line="user = nginx" state="present"
+    - name: change ownership phpfpm group
+      lineinfile: dest=/etc/php5/fpm/pool.d/www.conf regexp="^group" line="group = nginx" state="present"
+    - name: create www directory
+      file: path={{ doc_root }} state=directory owner=root group=root mode=0755
+#    - name: copy app source
+#      synchronize: src=/ansibledir/applications/ dest=/var/www
+    - name: copy git ssh deployment key
+      copy: src={{ serverconfig }}bitbucket.pvt dest=/root/bitbucket.pvt owner=root group=root mode=0600
+    - name: git clone sitebuilder app
+      git: repo=git@bitbucket.org:urgen/sitebuilder.git dest={{ doc_root }}/sitebuilder accept_hostkey=yes key_file=/root/bitbucket.pvt
+    - name: git clone easyforms app
+      git: repo=git@bitbucket.org:urgen/easyforms.git dest={{ doc_root }}/easyforms accept_hostkey=yes key_file=/root/bitbucket.pvt
+    
+    - name: change ownership permissions 
+      file: path={{ doc_root }} owner=nginx recurse=yes group=nginx mode=0755
+    
+    - name: change directory permission for easyforms
+      file: path={{ doc_root }}/easyforms/app/{{ item }} owner=nginx recurse=yes group=nginx mode=0777
+      with_items":
+      - runtime
+      - assets
+      - static_files
+    - name: setup easyform site
+      template: src={{ serverconfig }}easyform.conf.j2 dest=/etc/nginx/conf.d/easyform.conf mode=0644 
+      notify: restart nginx server
+    - name: setup sitebuilder site
+      template: src={{ serverconfig }}sitebuilder.conf.j2 dest=/etc/nginx/conf.d/sitebuilder.conf mode=0644
+      notify: restart nginx server
+#    - name: change mysql password
+#      script: {{ serverconfig }}mysqlscript.sh
+#      notify: restart mysql server
+    - name: download geolite database for easyforms
+      script: {{ serverconfig }}wgetgeoip.sh
+    - name: restart phpfpm
+      service: name=php5-fpm state=restarted
+    handlers:
+      - name: restart nginx server
+        service: name=nginx state=restarted
+      - name: restart mysql server
+        service: name=mysql state=restarted
