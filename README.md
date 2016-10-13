@@ -1,5 +1,5 @@
-    #Generate key pair for bitbucket
-     ssh-keygen -f /ansible-dir/bitbucket.pvt
+    # Generate key pair for bitbucket
+    ssh-keygen -f /ansibledir/bitbucket.pvt
      
     # currently tested for ubuntu 14.04 LTS only 
     # ansible-lemp 
