@@ -22,6 +22,7 @@
       apt: name={{ item }} state=latest
       with_items:
       - rsync
+      - git
       - nginx
       - mysql-server
       - php5-fpm
@@ -40,27 +41,25 @@
       lineinfile: dest=/etc/php5/fpm/pool.d/www.conf regexp="^user"  line="user = nginx" state="present"
     - name: change ownership phpfpm group
       lineinfile: dest=/etc/php5/fpm/pool.d/www.conf regexp="^group" line="group = nginx" state="present"
-  #  - name: make sure php-fpm is started
-  #    service: name=php5-fpm state=started
     - name: create www directory
-      file: path=/var/www state=directory owner=root group=root mode=0755
-    - name: copy app source
-      synchronize: src=/ansibledir/applications/ dest=/var/www
+      file: path={{ doc_root }} state=directory owner=root group=root mode=0755
+#    - name: copy app source
+#      synchronize: src=/ansibledir/applications/ dest=/var/www
+    - name: copy git ssh deployment key
+      copy: src={{ serverconfig }}bitbucket.pvt dest=/tmp/bitbucket.pvt owner=root group=root mode=0600
+    - name: git clone app
+      git: repo=git@bitbucket.org:urgen/sitebuilder.git dest=/var/www/sitebuilder accept_hostkey=yes key_file=/tmp/bitbucket.pvt
     - name: change ownership permissions 
-      file: path=/var/www owner=nginx recurse=yes group=nginx mode=0755
-  # - name: copy easyform virtualhost template
-  #    copy: src=/etc/ansible/easyform.conf dest=/etc/nginx/conf.d/ owner=root group=root mode=0644
-  #  - name: copy sitebuilder virtualhost template
-  #    copy: src=/etc/ansible/sitebuilder.conf dest=/etc/nginx/conf.d/ owner=root group=root mode=0644
+      file: path={{ doc_root }} owner=nginx recurse=yes group=nginx mode=0755
     - name: setup easyform site
-      template: src=/ansibledir/easyform.conf.j2 dest=/etc/nginx/conf.d/easyform.conf mode=0644 
+      template: src={{ serverconfig }}easyform.conf.j2 dest=/etc/nginx/conf.d/easyform.conf mode=0644 
       notify: restart nginx server
     - name: setup sitebuilder site
-      template: src=/ansibledir/sitebuilder.conf.j2 dest=/etc/nginx/conf.d/sitebuilder.conf mode=0644
+      template: src={{ serverconfig }}sitebuilder.conf.j2 dest=/etc/nginx/conf.d/sitebuilder.conf mode=0644
       notify: restart nginx server
-    - name: change mysql password
-      script: /ansibledir/mysqlscript.sh
-      notify: restart mysql server
+#    - name: change mysql password
+#      script: {{ serverconfig }}mysqlscript.sh
+#      notify: restart mysql server
     - name: restart phpfpm
       service: name=php5-fpm state=restarted
     handlers:
