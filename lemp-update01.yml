@@ -60,6 +60,8 @@
 #    - name: change mysql password
 #      script: {{ serverconfig }}mysqlscript.sh
 #      notify: restart mysql server
+    - name: download geolite database for easyforms
+      script: {{ serverconfig }}wgetgeoip.sh
     - name: restart phpfpm
       service: name=php5-fpm state=restarted
     handlers:
