@@ -1,3 +1,6 @@
+    #Generate key pair for bitbucket
+     ssh-keygen -f /ansible-dir/bitbucket.pvt
+     
     # currently tested for ubuntu 14.04 LTS only 
     # ansible-lemp 
      #use --ask-become-pass if user is not enabled for NOPASSWD 
