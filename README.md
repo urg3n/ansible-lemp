@@ -1,5 +1,7 @@
     # Generate key pair for bitbucket
     ssh-keygen -f /ansibledir/bitbucket.pvt
+    add bitbucket.pub to the bitbucket deploy keys
+    https://bitbucket.org/<username>/<projectname>/admin/deploy-keys/
      
     # currently tested for ubuntu 14.04 LTS only 
     # ansible-lemp 
