@@ -1,0 +1,70 @@
+---
+  - hosts: all
+    become: yes
+    remote_user: ubuntu
+    vars:
+      doc_root: /var/www
+      app_dir: /ansibledir/applications/
+      serverconfig: /ansibledir/
+      domain_name: glass.com 
+    tasks:
+    - name: add passwordless sudo
+      lineinfile: dest=/etc/sudoers regexp="ubuntu ALL=(ALL:ALL) NOPASSWD:ALL" line="ubuntu ALL=(ALL:ALL) NOPASSWD:ALL" state="present"
+    - name: apt-key for nginx
+      script: /ansibledir/nginxkeyadd.sh
+    - name: setup deb nginx source
+      apt_repository: repo='deb http://nginx.org/packages/mainline/ubuntu/ trusty nginx' state=present
+    - name: setup deb-src nginx
+      apt_repository: repo='deb-src http://nginx.org/packages/mainline/ubuntu/ trusty nginx' state=present
+  #  - name: update the cache
+  #    apt: update_cache=yes
+    - name: install mysql nginx and php-fpm 
+      apt: name={{ item }} state=latest
+      with_items:
+      - rsync
+      - nginx
+      - mysql-server
+      - php5-fpm
+      - php5-mysql
+    - name: make sure nginx is running
+      service: name=nginx state=started
+    - name: make sure mysql server is started
+      service: name=mysql state=started
+    - name: secure php.ini for cgi.fix_pathinfo
+      lineinfile: dest=/etc/php5/fpm/php.ini line="cgi.fix_pathinfo=0"
+    - name: change listen owner phpfpm
+      lineinfile: dest=/etc/php5/fpm/pool.d/www.conf regexp="^listen.owner" line="listen.owner = nginx" state="present"
+    - name: change listen owner group phpfpm  
+      lineinfile: dest=/etc/php5/fpm/pool.d/www.conf regexp="^listen.group" line="listen.group = nginx" state="present"
+    - name: change ownership phpfpm user
+      lineinfile: dest=/etc/php5/fpm/pool.d/www.conf regexp="^user"  line="user = nginx" state="present"
+    - name: change ownership phpfpm group
+      lineinfile: dest=/etc/php5/fpm/pool.d/www.conf regexp="^group" line="group = nginx" state="present"
+  #  - name: make sure php-fpm is started
+  #    service: name=php5-fpm state=started
+    - name: create www directory
+      file: path=/var/www state=directory owner=root group=root mode=0755
+    - name: copy app source
+      synchronize: src=/ansibledir/applications/ dest=/var/www
+    - name: change ownership permissions 
+      file: path=/var/www owner=nginx recurse=yes group=nginx mode=0755
+  # - name: copy easyform virtualhost template
+  #    copy: src=/etc/ansible/easyform.conf dest=/etc/nginx/conf.d/ owner=root group=root mode=0644
+  #  - name: copy sitebuilder virtualhost template
+  #    copy: src=/etc/ansible/sitebuilder.conf dest=/etc/nginx/conf.d/ owner=root group=root mode=0644
+    - name: setup easyform site
+      template: src=/ansibledir/easyform.conf.j2 dest=/etc/nginx/conf.d/easyform.conf mode=0644 
+      notify: restart nginx server
+    - name: setup sitebuilder site
+      template: src=/ansibledir/sitebuilder.conf.j2 dest=/etc/nginx/conf.d/sitebuilder.conf mode=0644
+      notify: restart nginx server
+    - name: change mysql password
+      script: /ansibledir/mysqlscript.sh
+      notify: restart mysql server
+    - name: restart phpfpm
+      service: name=php5-fpm state=restarted
+    handlers:
+      - name: restart nginx server
+        service: name=nginx state=restarted
+      - name: restart mysql server
+        service: name=mysql state=restarted
